@@ -84,13 +84,16 @@ class DepthDecoder(nn.Module):
 
     def forward(self, input_features):
         self.outputs = []
-
         # decoder
         x = input_features[-1]
+        # print("X")
+        # print(x.size())
         for i in range(4, -1, -1):
             x = self.convs[("upconv", i, 0)](x)
             x = [upsample(x)]
             if self.use_skips and i > 0:
+                # print("next")
+                # print(input_features[i - 1].size())
                 x += [input_features[i - 1]]
             x = torch.cat(x, 1)
             x = self.convs[("upconv", i, 1)](x)
@@ -113,6 +116,9 @@ class DispResNet(nn.Module):
 
     def forward(self, x):
         features = self.encoder(x)
+        # print(features[0].shape)
+        # print(features[1].shape)
+        # print(features[2].shape)
         outputs = self.decoder(features)
         
         if self.training:
@@ -135,6 +141,6 @@ if __name__ == "__main__":
 
     tgt_depth = model(tgt_img)
 
-    print(tgt_depth[0].size())
+    # print(tgt_depth[0].size())
 
 

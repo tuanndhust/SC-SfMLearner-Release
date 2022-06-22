@@ -16,6 +16,10 @@ import models
 from utils import tensor2array
 
 import cv2
+import matplotlib.pyplot as plt
+from matplotlib.path import Path as PathPlot
+import matplotlib.patches as patches
+
 
 parser = argparse.ArgumentParser(description='Script for visualizing depth map and masks',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -25,18 +29,19 @@ parser.add_argument("--img-width", default=832, type=int, help="Image width")
 parser.add_argument("--no-resize", action='store_true', help="no resizing is done")
 
 parser.add_argument("--dataset-dir", type=str, help="Dataset directory")
-parser.add_argument("--output-dir", default='./out_vo/',type=str, help="Output directory for saving predictions in a big 3D numpy file")
+# parser.add_argument("--output-dir", type=str, help="Output directory for saving predictions in a big 3D numpy file")
 parser.add_argument("--img-exts", default=['png', 'jpg', 'bmp'], nargs='*', type=str, help="images extensions to glob")
 parser.add_argument("--rotation-mode", default='euler', choices=['euler', 'quat'], type=str)
 
 parser.add_argument("--sequence", default='09', type=str, help="sequence to test")
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-# parser.add_argument("--device", type=str, default='cuda', help="cpu or gpu inference")
 
 
-# device = args.device
 def load_tensor_image(filename, args):
-    img = imread(filename).astype(np.float32)
+    img = imread(filename)
+    cv2.imshow("Window", cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    cv2.waitKey(3)
+    img = img.astype(np.float32)
     h, w, _ = img.shape
     if (not args.no_resize) and (h != args.img_height or w != args.img_width):
         img = imresize(img, (args.img_height, args.img_width)).astype(np.float32)
@@ -48,20 +53,35 @@ def load_tensor_image(filename, args):
 @torch.no_grad()
 def main():
     args = parser.parse_args()
-    weights_pose = torch.load(args.pretrained_posenet,map_location=device)
+
+    weights_pose = torch.load(args.pretrained_posenet)
     pose_net = models.PoseResNet().to(device)
     pose_net.load_state_dict(weights_pose['state_dict'], strict=False)
     pose_net.eval()
 
     # image_dir = Path(args.dataset_dir + args.sequence + "/image_2/")
     image_dir = Path(args.dataset_dir + args.sequence)
-    output_dir = Path(args.output_dir)
-    output_dir.makedirs_p()
+    # output_dir = Path(args.output_dir)
+    # output_dir.makedirs_p()
 
     test_files = sum([image_dir.files('*.{}'.format(ext)) for ext in args.img_exts], [])
     test_files.sort()
 
     print('{} files to test'.format(len(test_files)))
+
+###### This part of code used for visulaization
+    plt.ion()
+    fig = plt.figure(0)
+    ax = fig.add_subplot(111)
+    ax.set_xlim(-100, 100)
+    ax.set_ylim(-100, 100)
+    plt.show()
+    verts = [(0, 0)]
+    codes = [PathPlot.MOVETO]
+    path = PathPlot(verts, codes)
+    patch = patches.PathPatch(path, facecolor='white', lw=2)
+    ax.add_patch(patch)
+#######
 
     # Identity matrix
     global_pose = np.eye(4)
@@ -85,9 +105,21 @@ def main():
         global_pose = global_pose @  np.linalg.inv(pose_mat)
         # Save 3x4 flattened odometry rray into a list
         poses.append(global_pose[0:3, :].reshape(1, 12))
-
         # update
         tensor_img1 = tensor_img2
+
+        # # Visualization
+        x = global_pose[0, 3]
+        z = global_pose[2, 3]
+        verts = verts + [(x, z)]
+        codes = codes + [PathPlot.LINETO]
+        path = PathPlot(verts, codes)
+        patch = patches.PathPatch(path, facecolor='white', lw=2)
+        ax.add_patch(patch)
+        plt.draw()
+        plt.show(block=False)
+        plt.pause(0.05)
+
     # Save to file
     poses = np.concatenate(poses, axis=0)
     filename = Path(args.output_dir + args.sequence + ".txt")

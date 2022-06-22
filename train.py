@@ -424,10 +424,12 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
 
 
 def compute_depth(disp_net, tgt_img, ref_imgs):
+    # print(tgt_img.shape)
     tgt_depth = [1/disp for disp in disp_net(tgt_img)]
 
     ref_depths = []
     for ref_img in ref_imgs:
+
         ref_depth = [1/disp for disp in disp_net(ref_img)]
         ref_depths.append(ref_depth)
 

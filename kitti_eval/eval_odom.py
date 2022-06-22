@@ -13,13 +13,14 @@ parser.add_argument('--align', type=str,
                     help="alignment type")
 parser.add_argument('--seqs',
                     nargs="+",
-                    type=int,
+                    type=str,
                     help="sequences to be evaluated",
                     default=None)
 args = parser.parse_args()
 
 eval_tool = KittiEvalOdom()
-gt_dir = "./kitti_eval/gt_poses/"
+# gt_dir = "./kitti_eval/gt_poses/"
+gt_dir = "/home/tuannghust/Duong_proc_test/poses/"
 result_dir = args.result
 
 continue_flag = input("Evaluate result in {}? [y/n]".format(result_dir))

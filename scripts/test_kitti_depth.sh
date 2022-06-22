@@ -1,11 +1,11 @@
-DISP_NET=checkpoints/resnet18_depth_256/dispnet_model_best.pth.tar
+DISP_NET=checkpoints/UpdatedModels/resnet50_depth_256/dispnet_model_best.pth.tar
 # DISP_NET=checkpoints/resnet50_depth_256/dispnet_model_best.pth.tar
 
-DATA_ROOT=/media/bjw/Disk/Dataset/kitti_depth_test
-RESULTS_DIR=results/test
+DATA_ROOT=/home/tuannghust/Data/Inference
+RESULTS_DIR=/home/tuannghust/Data/Inference/results/test
 
 # test
-python test_disp.py --resnet-layers 18 --img-height 256 --img-width 832 \
+python test_disp.py --resnet-layers 50 --img-height 352 --img-width 640 \
 --pretrained-dispnet $DISP_NET --dataset-dir $DATA_ROOT/color \
 --output-dir $RESULTS_DIR
 
