@@ -21,6 +21,7 @@ import models
 import argparse
 
 from transformations import quaternion_from_matrix
+import onnxruntime as ort
 
 
 parser = argparse.ArgumentParser(description='Script for visualizing depth map and masks',
@@ -51,8 +52,10 @@ def load_tensor_image(img, args):
     # Cropping to [352, 640]
     img = img[4:-4, :, :]
     img = np.transpose(img, (2, 0, 1))
-    tensor_img = ((torch.from_numpy(img).unsqueeze(0)/255-0.45)/0.225).to(device)
-    return tensor_img
+    img = np.expand_dims(img,0)
+    img = img/255.0
+    # tensor_img = ((torch.from_numpy(img).unsqueeze(0)/255-0.45)/0.225).to(device)
+    return img
 
 def Tmat2PoseMsg(T: np.ndarray)->PoseStamped:
     # Rotation
@@ -79,14 +82,15 @@ class PoseEstimator:
 
     def __init__(self, args):
         """
-        This is a node that subscribes to the RGB image topic of rosout, 
+        This is a node that subscribes to the RGB image topic of rosout,
         convert each sensor_msg.msg.Image message at each timestamp to cv2 compatible numpy.ndarray
         """
         self.args =args
-        weights_pose = torch.load(args.pretrained_posenet, map_location=args.device)
-        self.pose_net = models.PoseResNet().to(device)
-        self.pose_net.load_state_dict(weights_pose['state_dict'], strict=False)
-        self.pose_net.eval()
+        self.ort_sess = ort.InferenceSession(args.pretrained_posenet)
+        # weights_pose = torch.load(args.pretrained_posenet, map_location=args.device)
+        # self.pose_net = models.PoseResNet().to(device)
+        # self.pose_net.load_state_dict(weights_pose['state_dict'], strict=False)
+        # self.pose_net.eval()
         # Identity matrix
         self.global_pose = np.eye(4)
         self.poses = [self.global_pose[0:3, :].reshape(1, 12)]
@@ -112,10 +116,12 @@ class PoseEstimator:
             if len(self.tensor_imgs) == 2:
                 # [B, 6](B=1)
                 start_time = time.time()
-                pose = self.pose_net(self.tensor_imgs[0], self.tensor_imgs[1])
-
+                # pose = self.pose_net(self.tensor_imgs[0], self.tensor_imgs[1])
+                pose = self.ort_sess.run(None,{'img1':self.tensor_imgs[0],'img2': self.tensor_imgs[1]})
                 # [6] -> [3, 4]
-                pose_mat = pose_vec2mat(pose).squeeze(0).cpu().numpy()
+               # print(pose.shape())
+                pose_mat = pose_vec2mat(torch.tensor(pose[0])).squeeze(0).cpu().numpy()\
+                # pose_mat = pose_vec2mat(pose)[0]
                 # Convert to homogenous # [4, 4]
                 pose_mat = np.vstack([pose_mat, np.array([0, 0, 0, 1])])
                 # Convert ego-motion to odometry
